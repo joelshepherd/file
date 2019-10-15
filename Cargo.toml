@@ -5,4 +5,6 @@ authors = ["Joel Shepherd <joel@swivid.ink>"]
 edition = "2018"
 
 [dependencies]
+gpgme = "0.9"
 structopt = "0.3"
+tar = "0.4"
