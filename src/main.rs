@@ -5,14 +5,14 @@ use tar::{Archive, Builder};
 
 #[derive(Debug, StructOpt)]
 enum Opts {
-    #[structopt(name = "init")]
+    #[structopt(name = "init", about = "Creates a new file")]
     Init {
         name: String,
         remote: Option<String>,
     },
-    #[structopt(name = "open")]
+    #[structopt(name = "open", about = "Opens and decrypts a file")]
     Open,
-    #[structopt(name = "shut")]
+    #[structopt(name = "shut", about = "Shuts and encrypts a file")]
     Shut,
 }
 
