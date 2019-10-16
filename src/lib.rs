@@ -1,19 +1,26 @@
-use gpgme::{Context, Protocol};
-use std::fs;
+use gpgme::{Context, Key, Protocol};
+use serde::{Deserialize, Serialize};
+use std::{fs, iter::Iterator, str};
 use tar::{Archive, Builder};
 
-pub fn init(name: String, remote: Option<String>) {
+#[derive(Serialize, Deserialize, Debug)]
+struct Config {
+    name: String,
+    recipients: Vec<String>,
+    remote: Option<String>,
+}
+
+pub fn init(name: String, recipients: Vec<String>, remote: Option<String>) {
     fs::create_dir(&name).unwrap();
 
     let path = format!("{}/.config", &name);
-    let contents = format!(
-        "NAME={}\nREMOTE={}",
-        &name,
-        &remote.unwrap_or(String::from(""))
-    );
+    let config = Config {
+        name,
+        recipients,
+        remote,
+    };
+    let contents = toml::to_string_pretty(&config).unwrap();
     fs::write(path, contents).unwrap();
-
-    println!("Done");
 }
 
 pub fn open() {
@@ -25,38 +32,66 @@ pub fn open() {
     archive.unpack(".").unwrap();
 
     shred(".file.gpg");
-
-    println!("Done");
 }
 
 pub fn shut() {
-    let mut input = Vec::new();
-    {
-        let mut archive = Builder::new(&mut input);
-        archive.append_dir_all(".", ".").unwrap();
-        archive.finish().unwrap();
-    }
+    let config = read_config(".");
+    let files = find_files(".");
+    let keys = convert_keys(&config.recipients);
 
-    let mut output = Vec::new();
+    // Create archive
+    let mut input = Vec::new();
+    append_archive(&mut input, &files);
+
+    // Encrypt archive
+    let mut output = fs::File::create(".file.gpg").unwrap();
     gpg_context()
-        .encrypt_symmetric(&mut input, &mut output)
+        .encrypt(&keys, &mut input, &mut output)
         .unwrap();
 
-    fs::write(".file.gpg", &output).unwrap();
+    // Shred files
+    for file in &files {
+        shred(file);
+    }
+}
 
-    for entry in fs::read_dir(".").unwrap() {
+fn append_archive(write: &mut Vec<u8>, files: &Vec<String>) {
+    let mut archive = Builder::new(write);
+    for file in files {
+        archive.append_path(file).unwrap();
+    }
+    archive.finish().unwrap();
+}
+
+fn convert_keys(recipients: &Vec<String>) -> Vec<Key> {
+    gpg_context()
+        .find_keys(recipients)
+        .unwrap()
+        .filter_map(|x| x.ok())
+        .filter(|k| k.can_encrypt())
+        .collect()
+}
+
+fn find_files(path: &str) -> Vec<String> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(path).unwrap() {
         let path = entry.unwrap().path();
         let path = path.to_str().unwrap();
         if path != "./.config" && path != "./.file.gpg" {
-            shred(path);
+            files.push(path.to_string());
         }
     }
-
-    println!("Done");
+    files
 }
 
 fn gpg_context() -> Context {
     Context::from_protocol(Protocol::OpenPgp).unwrap()
+}
+
+fn read_config(path: &str) -> Config {
+    let path = format!("{}/.config", path);
+    let contents = fs::read_to_string(path).unwrap();
+    toml::from_str(&contents).unwrap()
 }
 
 fn shred(path: &str) {
