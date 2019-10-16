@@ -1,28 +1,17 @@
 # file (name wip)
 
-Commands:
+Available commands:
 
-- `file init NAME [REMOTE]` Creates a file
+- `file init <name> [remote]` Creates a file
 - `file open` Opens the file
 - `file shut` Closes the file
 
-### init
+## Build
 
-- Creates a folder of name
-- Creates a dotfile with name and remote (if chosen)
+Required libraries for build:
 
-### open
-
-- Pulls from remote if setup
-- Decrypts the archive with gpg
-- Extracts the archive to the folder
-
-### shut
-
-- Zips the folder to an archive
-- Encrypts the archive with gpg
-- Cleans the directory of any other files
-- Pushes the remote if setup
+- `gpg-error`
+- `gpgme`
 
 ## Ideas
 
