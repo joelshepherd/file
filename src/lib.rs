@@ -39,12 +39,10 @@ pub fn shut() {
     let files = find_files(".");
     let keys = convert_keys(&config.recipients);
 
-    // Create archive
+    // Create and encrypt the archive
     let mut input = Vec::new();
-    append_archive(&mut input, &files);
-
-    // Encrypt archive
     let mut output = fs::File::create(".file.gpg").unwrap();
+    append_archive(&mut input, &files);
     gpg_context()
         .encrypt(&keys, &mut input, &mut output)
         .unwrap();
