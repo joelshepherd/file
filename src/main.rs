@@ -1,3 +1,4 @@
+use std::io::Result;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -6,10 +7,8 @@ enum Opts {
     Init {
         #[structopt(help = "Name for the file")]
         name: String,
-        #[structopt(help = "Who can open the file")]
+        #[structopt(help = "Recipients that can open the file")]
         recipients: Vec<String>,
-        #[structopt(long, help = "Remote to sync the file to")]
-        remote: Option<String>,
     },
     #[structopt(name = "open", about = "Opens and decrypts a file")]
     Open,
@@ -17,16 +16,14 @@ enum Opts {
     Shut,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let opts = Opts::from_args();
 
     match opts {
-        Opts::Init {
-            name,
-            recipients,
-            remote,
-        } => file::init(name, recipients, remote),
+        Opts::Init { name, recipients } => file::init(name, recipients),
         Opts::Open => file::open(),
         Opts::Shut => file::shut(),
-    }
+    }?;
+
+    Ok(())
 }

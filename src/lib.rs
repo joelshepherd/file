@@ -1,97 +1,82 @@
-use gpgme::{Context, Key, Protocol};
+mod gpg;
 use serde::{Deserialize, Serialize};
-use std::{fs, iter::Iterator, str};
+use std::{
+    fs::{create_dir, read_dir, read_to_string, remove_file, write},
+    io::Result,
+};
 use tar::{Archive, Builder};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Config {
-    name: String,
     recipients: Vec<String>,
-    remote: Option<String>,
 }
 
-pub fn init(name: String, recipients: Vec<String>, remote: Option<String>) {
-    fs::create_dir(&name).unwrap();
-
-    let path = format!("{}/.config", &name);
-    let config = Config {
-        name,
-        recipients,
-        remote,
-    };
-    let contents = toml::to_string_pretty(&config).unwrap();
-    fs::write(path, contents).unwrap();
+pub fn init(name: String, recipients: Vec<String>) -> Result<()> {
+    create_dir(&name)?;
+    write_config(&name, &Config { recipients })?;
+    Ok(())
 }
 
-pub fn open() {
-    let mut input = fs::File::open(".file.gpg").unwrap();
-    let mut output = Vec::new();
-    gpg_context().decrypt(&mut input, &mut output).unwrap();
-
-    let mut archive = Archive::new(&output[..]);
-    archive.unpack(".").unwrap();
-
-    shred(".file.gpg");
+pub fn open() -> Result<()> {
+    let file = gpg::decrypt_file(".file")?;
+    unpack_archive(file)?;
+    remove_file(".file")?;
+    Ok(())
 }
 
-pub fn shut() {
-    let config = read_config(".");
-    let files = find_files(".");
-    let keys = convert_keys(&config.recipients);
+pub fn shut() -> Result<()> {
+    let config = read_config(".")?;
+    let files = find_files(".")?;
 
-    // Create and encrypt the archive
     let mut input = Vec::new();
-    let mut output = fs::File::create(".file.gpg").unwrap();
-    append_archive(&mut input, &files);
-    gpg_context()
-        .encrypt(&keys, &mut input, &mut output)
-        .unwrap();
+    create_archive(&mut input, &files)?;
+    gpg::encrypt_file(".file", config.recipients, input)?;
 
-    // Shred files
     for file in &files {
-        shred(file);
+        remove_file(file)?;
     }
+    Ok(())
 }
 
-fn append_archive(write: &mut Vec<u8>, files: &Vec<String>) {
-    let mut archive = Builder::new(write);
+fn create_archive(output: &mut Vec<u8>, files: &Vec<String>) -> Result<()> {
+    let mut archive = Builder::new(output);
     for file in files {
-        archive.append_path(file).unwrap();
+        archive.append_path(file)?;
     }
-    archive.finish().unwrap();
+    archive.finish()?;
+    Ok(())
 }
 
-fn convert_keys(recipients: &Vec<String>) -> Vec<Key> {
-    gpg_context()
-        .find_keys(recipients)
-        .unwrap()
-        .filter_map(|x| x.ok())
-        .filter(|k| k.can_encrypt())
-        .collect()
+fn unpack_archive(input: Vec<u8>) -> Result<()> {
+    let mut archive = Archive::new(&input[..]);
+    archive.unpack(".")?;
+    Ok(())
 }
 
-fn find_files(path: &str) -> Vec<String> {
+fn find_files(path: &str) -> Result<Vec<String>> {
     let mut files = Vec::new();
-    for entry in fs::read_dir(path).unwrap() {
-        let path = entry.unwrap().path();
-        let path = path.to_str().unwrap();
+    let dir = read_dir(path)?;
+    for entry in dir {
+        let path = entry?.path();
+        let path = path.to_str().unwrap().to_owned();
         if path != "./.config" && path != "./.file.gpg" {
-            files.push(path.to_string());
+            files.push(path);
         }
     }
-    files
+    Ok(files)
 }
 
-fn gpg_context() -> Context {
-    Context::from_protocol(Protocol::OpenPgp).unwrap()
-}
-
-fn read_config(path: &str) -> Config {
+fn read_config(path: &str) -> Result<Config> {
     let path = format!("{}/.config", path);
-    let contents = fs::read_to_string(path).unwrap();
-    toml::from_str(&contents).unwrap()
+    let contents = read_to_string(path)?;
+    let config = toml::from_str(&contents)?;
+    Ok(config)
 }
 
-fn shred(path: &str) {
-    fs::remove_file(path).unwrap()
+fn write_config(path: &str, config: &Config) -> Result<()> {
+    let path = format!("{}/.config", path);
+    // @todo Pretty display formetted unwrap
+    let input = toml::to_string_pretty(config).unwrap();
+    write(path, input)?;
+    Ok(())
 }
