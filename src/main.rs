@@ -7,8 +7,10 @@ enum Opts {
     Init {
         #[structopt(help = "Name for the file")]
         name: String,
-        #[structopt(help = "Recipients that can open the file")]
+        #[structopt(long, help = "Recipients that can open the file")]
         recipients: Vec<String>,
+        #[structopt(long, help = "Remote location to syncronise the file")]
+        remote: Option<String>,
     },
     #[structopt(name = "open", about = "Opens and decrypts a file")]
     Open,
@@ -20,7 +22,11 @@ fn main() -> Result<()> {
     let opts = Opts::from_args();
 
     match opts {
-        Opts::Init { name, recipients } => file::init(name, recipients),
+        Opts::Init {
+            name,
+            recipients,
+            remote,
+        } => file::init(name, recipients, remote),
         Opts::Open => file::open(),
         Opts::Shut => file::shut(),
     }?;

@@ -1,4 +1,6 @@
 mod gpg;
+mod remote;
+use remote::{pull_file, push_file};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{create_dir, read_dir, read_to_string, remove_file, write},
@@ -9,23 +11,34 @@ use tar::{Archive, Builder};
 #[derive(Serialize, Deserialize, Debug)]
 struct Config {
     recipients: Vec<String>,
+    remote: Option<String>,
 }
 
-pub fn init(name: String, recipients: Vec<String>) -> Result<()> {
+/// Initialised a new file
+pub fn init(name: String, recipients: Vec<String>, remote: Option<String>) -> Result<()> {
     create_dir(&name)?;
-    write_config(&name, &Config { recipients })?;
+    write_config(&name, &Config { recipients, remote })?;
+
     Ok(())
 }
 
+/// Opens a shut file
 pub fn open() -> Result<()> {
+    let config = read_config()?;
+    if let Some(remote) = config.remote {
+        pull_file(&remote)?;
+    }
+
     let file = gpg::decrypt_file(".file")?;
     unpack_archive(file)?;
     remove_file(".file")?;
+
     Ok(())
 }
 
+/// Shuts an opened file
 pub fn shut() -> Result<()> {
-    let config = read_config(".")?;
+    let config = read_config()?;
     let files = find_files(".")?;
 
     let mut input = Vec::new();
@@ -35,6 +48,10 @@ pub fn shut() -> Result<()> {
     for file in &files {
         remove_file(file)?;
     }
+    if let Some(remote) = config.remote {
+        push_file(&remote)?;
+    }
+
     Ok(())
 }
 
@@ -66,16 +83,15 @@ fn find_files(path: &str) -> Result<Vec<String>> {
     Ok(files)
 }
 
-fn read_config(path: &str) -> Result<Config> {
-    let path = format!("{}/.config", path);
-    let contents = read_to_string(path)?;
+fn read_config() -> Result<Config> {
+    let contents = read_to_string(".config")?;
     let config = toml::from_str(&contents)?;
     Ok(config)
 }
 
-fn write_config(path: &str, config: &Config) -> Result<()> {
-    let path = format!("{}/.config", path);
-    // @todo Pretty display formetted unwrap
+fn write_config(name: &str, config: &Config) -> Result<()> {
+    let path = format!("{}/.config", name);
+    // @todo Pretty display formatted unwrap
     let input = toml::to_string_pretty(config).unwrap();
     write(path, input)?;
     Ok(())

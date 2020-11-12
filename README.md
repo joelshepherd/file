@@ -1,10 +1,12 @@
 # file (name wip)
 
+A CLI tool to maintain an encrypt notes directory.
+
 Available commands:
 
-- `file init <name> [remote]` Creates a file
-- `file open` Opens the file
-- `file shut` Closes the file
+- `file init <name>` Creates a file directory
+- `file open` Opens the current file directory
+- `file shut` Closes the current file directory
 
 ## Build
 
@@ -15,5 +17,4 @@ Required libraries for build:
 
 ## Ideas
 
-- Should this integrate git to save history?
-- Should this integrate with gpg recipients for multi-user editing?
+- Should this integrate git to save version history?
