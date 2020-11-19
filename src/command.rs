@@ -1,44 +1,36 @@
-mod gpg;
-mod remote;
-use remote::{pull_file, push_file};
-use serde::{Deserialize, Serialize};
-use std::{
-    fs::{create_dir, read_dir, read_to_string, remove_file, write},
-    io::Result,
-};
+use crate::config;
+use crate::gpg;
+use crate::remote::{pull_file, push_file};
+use std::{fs, io::Result};
 use tar::{Archive, Builder};
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Config {
-    recipients: Vec<String>,
-    remote: Option<String>,
-}
 
 /// Initialised a new file
 pub fn init(name: String, recipients: Vec<String>, remote: Option<String>) -> Result<()> {
-    create_dir(&name)?;
-    write_config(&name, &Config { recipients, remote })?;
+    fs::create_dir(&name)?;
+
+    let config = config::Config::new(recipients, remote);
+    config::write(&name, &config)?;
 
     Ok(())
 }
 
 /// Opens a shut file
 pub fn open() -> Result<()> {
-    let config = read_config()?;
+    let config = config::read()?;
     if let Some(remote) = config.remote {
         pull_file(&remote)?;
     }
 
     let file = gpg::decrypt_file(".file")?;
     unpack_archive(file)?;
-    remove_file(".file")?;
+    fs::remove_file(".file")?;
 
     Ok(())
 }
 
 /// Shuts an opened file
 pub fn shut() -> Result<()> {
-    let config = read_config()?;
+    let config = config::read()?;
     let files = find_files(".")?;
 
     let mut input = Vec::new();
@@ -46,7 +38,7 @@ pub fn shut() -> Result<()> {
     gpg::encrypt_file(".file", config.recipients, input)?;
 
     for file in &files {
-        remove_file(file)?;
+        fs::remove_file(file)?;
     }
     if let Some(remote) = config.remote {
         push_file(&remote)?;
@@ -72,7 +64,7 @@ fn unpack_archive(input: Vec<u8>) -> Result<()> {
 
 fn find_files(path: &str) -> Result<Vec<String>> {
     let mut files = Vec::new();
-    let dir = read_dir(path)?;
+    let dir = fs::read_dir(path)?;
     for entry in dir {
         let path = entry?.path();
         let path = path.to_str().unwrap().to_owned();
@@ -81,18 +73,4 @@ fn find_files(path: &str) -> Result<Vec<String>> {
         }
     }
     Ok(files)
-}
-
-fn read_config() -> Result<Config> {
-    let contents = read_to_string(".config")?;
-    let config = toml::from_str(&contents)?;
-    Ok(config)
-}
-
-fn write_config(name: &str, config: &Config) -> Result<()> {
-    let path = format!("{}/.config", name);
-    // @todo Pretty display formatted unwrap
-    let input = toml::to_string_pretty(config).unwrap();
-    write(path, input)?;
-    Ok(())
 }

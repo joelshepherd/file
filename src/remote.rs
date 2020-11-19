@@ -1,8 +1,7 @@
 use ssh2::Session;
 use std::fs::File;
 use std::io::{copy, Read, Result, Write};
-use std::net::SocketAddr;
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use url::Url;
 

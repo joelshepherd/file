@@ -1,3 +1,7 @@
+mod command;
+mod config;
+mod gpg;
+mod remote;
 use std::io::Result;
 use structopt::StructOpt;
 
@@ -26,9 +30,9 @@ fn main() -> Result<()> {
             name,
             recipients,
             remote,
-        } => file::init(name, recipients, remote),
-        Opts::Open => file::open(),
-        Opts::Shut => file::shut(),
+        } => command::init(name, recipients, remote),
+        Opts::Open => command::open(),
+        Opts::Shut => command::shut(),
     }?;
 
     Ok(())
