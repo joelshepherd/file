@@ -8,22 +8,25 @@ pub struct Config {
 }
 
 impl Config {
+    // Create a new config
     pub fn new(recipients: Vec<String>, remote: Option<String>) -> Config {
         Config { recipients, remote }
     }
-}
 
-pub fn read() -> Result<Config> {
-    let contents = fs::read_to_string(".config")?;
-    let config = toml::from_str(&contents)?;
+    // Read a config from disk
+    pub fn read() -> Result<Config> {
+        let contents = fs::read_to_string(".config")?;
+        let config = toml::from_str(&contents)?;
 
-    Ok(config)
-}
+        Ok(config)
+    }
 
-pub fn write(name: &str, config: &Config) -> Result<()> {
-    let path = format!("{}/.config", name);
-    let contents = toml::to_string_pretty(config).unwrap();
-    fs::write(path, contents)?;
+    // Write a config to disk
+    pub fn write(&self, name: &str) -> Result<()> {
+        let path = format!("{}/.config", name);
+        let contents = toml::to_string_pretty(self).unwrap();
+        fs::write(path, contents)?;
 
-    Ok(())
+        Ok(())
+    }
 }

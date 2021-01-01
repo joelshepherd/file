@@ -1,5 +1,5 @@
-use crate::config;
-use crate::gpg;
+use crate::config::Config;
+use crate::encrypt::{decrypt_file, encrypt_file};
 use crate::remote::{pull_file, push_file};
 use std::{fs, io::Result};
 use tar::{Archive, Builder};
@@ -8,20 +8,20 @@ use tar::{Archive, Builder};
 pub fn init(name: String, recipients: Vec<String>, remote: Option<String>) -> Result<()> {
     fs::create_dir(&name)?;
 
-    let config = config::Config::new(recipients, remote);
-    config::write(&name, &config)?;
+    let config = Config::new(recipients, remote);
+    config.write(&name)?;
 
     Ok(())
 }
 
 /// Opens a shut file
 pub fn open() -> Result<()> {
-    let config = config::read()?;
+    let config = Config::read()?;
     if let Some(remote) = config.remote {
         pull_file(&remote)?;
     }
 
-    let file = gpg::decrypt_file(".file")?;
+    let file = decrypt_file(".file")?;
     unpack_archive(file)?;
     fs::remove_file(".file")?;
 
@@ -30,12 +30,12 @@ pub fn open() -> Result<()> {
 
 /// Shuts an opened file
 pub fn shut() -> Result<()> {
-    let config = config::read()?;
+    let config = Config::read()?;
     let files = find_files(".")?;
 
     let mut input = Vec::new();
     create_archive(&mut input, &files)?;
-    gpg::encrypt_file(".file", config.recipients, input)?;
+    encrypt_file(".file", config.recipients, input)?;
 
     for file in &files {
         fs::remove_file(file)?;

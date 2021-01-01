@@ -1,6 +1,6 @@
 mod command;
 mod config;
-mod gpg;
+mod encrypt;
 mod remote;
 use std::io::Result;
 use structopt::StructOpt;
